@@ -1,366 +1,467 @@
 <template>
-  <div class="telegram-account">
-    <!-- Telegram账号登录卡片 -->
-    <t-card class="login-card" v-if="!telegramInfo.isLoggedIn">
+  <div class="page-container">
+
+    <!-- Telegram账号列表卡片 -->
+    <t-card class="page-card account-list-card">
       <template #header>
         <div class="card-header">
-          <t-icon name="logo-telegram" size="20px" />
-          <span class="card-title">Telegram账号登录</span>
-        </div>
-      </template>
-      
-      <div class="login-form">
-        <t-form :data="loginForm" @submit="handleLogin">
-          <t-form-item label="手机号码" name="phone">
-            <t-input 
-              v-model="loginForm.phone" 
-              placeholder="请输入手机号码（包含国家代码，如：+8613800138000）"
-              prefix-icon="mobile"
-            />
-          </t-form-item>
-          
-          <t-form-item v-if="showVerificationCode" label="验证码" name="verificationCode">
-            <t-input 
-              v-model="loginForm.verificationCode" 
-              placeholder="请输入收到的验证码"
-              prefix-icon="secured"
-            />
-          </t-form-item>
-          
-          <t-form-item>
+          <t-icon name="view-list" size="20px" />
+          <span class="card-title">Telegram账号列表</span>
+          <div class="header-actions">
             <t-button 
-              theme="primary" 
-              type="submit" 
-              block
-              :loading="loginLoading"
+              theme="success" 
+              size="small" 
+              @click="showAddAccountDialog"
             >
-              {{ showVerificationCode ? '验证登录' : '发送验证码' }}
+              <template #icon>
+                <t-icon name="add" />
+              </template>
+              添加账号
             </t-button>
-          </t-form-item>
-        </t-form>
-        
-        <t-divider>
-          <span class="divider-text">登录说明</span>
-        </t-divider>
-        
-        <div class="login-help">
-          <p>登录流程：</p>
-          <ol>
-            <li>输入您的手机号码（需包含国家代码）</li>
-            <li>点击"发送验证码"按钮</li>
-            <li>在您的Telegram应用中查看验证码</li>
-            <li>输入验证码并点击"验证登录"</li>
-          </ol>
-          <p class="note">注意：请确保您的手机号码已注册Telegram账号</p>
-        </div>
-      </div>
-    </t-card>
-
-    <!-- 已登录的Telegram账号信息 -->
-    <t-card class="account-info-card" v-else>
-      <template #header>
-        <div class="card-header">
-          <t-icon name="logo-telegram" size="20px" />
-          <span class="card-title">Telegram账号信息</span>
-        </div>
-      </template>
-      
-      <div class="account-info">
-        <t-row :gutter="[16, 16]">
-          <t-col :span="12">
-            <div class="info-item">
-              <label class="info-label">用户名：</label>
-              <span class="info-value">{{ telegramInfo.username || '未设置' }}</span>
-            </div>
-          </t-col>
-          <t-col :span="12">
-            <div class="info-item">
-              <label class="info-label">姓名：</label>
-              <span class="info-value">{{ telegramInfo.firstName }} {{ telegramInfo.lastName || '' }}</span>
-            </div>
-          </t-col>
-          <t-col :span="12">
-            <div class="info-item">
-              <label class="info-label">手机号：</label>
-              <span class="info-value">{{ telegramInfo.phone }}</span>
-            </div>
-          </t-col>
-          <t-col :span="12">
-            <div class="info-item">
-              <label class="info-label">用户ID：</label>
-              <span class="info-value">{{ telegramInfo.userId }}</span>
-            </div>
-          </t-col>
-        </t-row>
-      </div>
-    </t-card>
-
-    <!-- 账号操作卡片 -->
-    <t-card class="account-actions-card" v-if="telegramInfo.isLoggedIn">
-      <template #header>
-        <div class="card-header">
-          <t-icon name="setting" size="20px" />
-          <span class="card-title">账号操作</span>
-        </div>
-      </template>
-      
-      <div class="account-actions">
-        <t-row :gutter="[16, 16]">
-          <t-col :span="8">
             <t-button 
               theme="primary" 
-              variant="outline" 
-              block
-              @click="handleRefreshInfo"
+              size="small" 
+              @click="handleRefreshList"
             >
               <template #icon>
                 <t-icon name="refresh" />
               </template>
-              刷新信息
+              刷新列表
             </t-button>
-          </t-col>
-          <t-col :span="8">
-            <t-button 
-              theme="warning" 
-              variant="outline" 
-              block
-              @click="handleExportSession"
-            >
-              <template #icon>
-                <t-icon name="download" />
-              </template>
-              导出会话
-            </t-button>
-          </t-col>
-          <t-col :span="8">
-            <t-button 
-              theme="danger" 
-              variant="outline" 
-              block
-              @click="handleLogout"
-            >
-              <template #icon>
-                <t-icon name="logout" />
-              </template>
-              退出登录
-            </t-button>
-          </t-col>
-        </t-row>
-      </div>
-    </t-card>
-
-    <!-- 会话管理卡片 -->
-    <t-card class="session-card" v-if="telegramInfo.isLoggedIn">
-      <template #header>
-        <div class="card-header">
-          <t-icon name="server" size="20px" />
-          <span class="card-title">会话管理</span>
+          </div>
         </div>
       </template>
       
-      <div class="session-settings">
-        <div class="setting-item">
-          <div class="setting-info">
-            <div class="setting-title">自动重连</div>
-            <div class="setting-desc">连接断开时自动重新连接</div>
-          </div>
-          <t-switch 
-            v-model="sessionSettings.autoReconnect" 
-            @change="handleAutoReconnectChange"
-          />
-        </div>
-        
-        <t-divider />
-        
-        <div class="setting-item">
-          <div class="setting-info">
-            <div class="setting-title">保持在线</div>
-            <div class="setting-desc">保持Telegram在线状态</div>
-          </div>
-          <t-switch 
-            v-model="sessionSettings.keepOnline" 
-            @change="handleKeepOnlineChange"
-          />
-        </div>
+      <div class="page-card-content account-list">
+        <t-table
+          :data="telegramAccountList"
+          :columns="tableColumns"
+          :loading="tableLoading"
+          :pagination="pagination"
+          @page-change="handlePageChange"
+          @page-size-change="handlePageSizeChange"
+          row-key="id"
+        >
+          <template #status="{ row }">
+            <t-tag 
+              :theme="row.status === 'online' ? 'success' : row.status === 'offline' ? 'danger' : 'warning'"
+              variant="light"
+            >
+              {{ getStatusText(row.status) }}
+            </t-tag>
+          </template>
+          
+          <template #actions="{ row }">
+            <t-space>
+              <t-button
+                theme="primary"
+                variant="text"
+                size="small"
+                @click="handleViewAccount(row)"
+              >
+                查看详情
+              </t-button>
+              <t-button
+                theme="warning"
+                variant="text"
+                size="small"
+                @click="handleEditAccount(row)"
+              >
+                编辑
+              </t-button>
+              <t-button
+                theme="danger"
+                variant="text"
+                size="small"
+                @click="handleDeleteAccount(row)"
+              >
+                删除
+              </t-button>
+            </t-space>
+          </template>
+        </t-table>
       </div>
     </t-card>
+
+    <!-- 添加账号弹窗 -->
+    <t-dialog
+      v-model:visible="addAccountDialogVisible"
+      header="添加Telegram账号"
+      width="480px"
+      :footer="false"
+      :close-on-overlay-click="false"
+      class="add-account-dialog"
+    >
+      <div class="add-account-content">
+        <div class="dialog-icon">
+          <t-icon name="logo-telegram" size="48px" />
+        </div>
+        
+        <div class="add-account-form">
+          <!-- 第一行：区号和手机号输入 -->
+          <div class="form-row">
+            <t-row :gutter="[12, 0]">
+              <t-col :span="4">
+                <div class="form-item">
+                  <label class="form-label">区号</label>
+                  <t-input 
+                    v-model="addAccountForm.countryCode" 
+                    placeholder="+86"
+                    class="country-code-input"
+                  />
+                </div>
+              </t-col>
+              <t-col :span="12">
+                <div class="form-item">
+                  <label class="form-label">手机号</label>
+                  <t-input 
+                    v-model="addAccountForm.phoneNumber" 
+                    placeholder="请输入手机号码"
+                    class="phone-input"
+                  />
+                </div>
+              </t-col>
+            </t-row>
+          </div>
+          
+          <!-- 第二行：验证码和二级密码输入 -->
+          <div class="form-row">
+            <t-row :gutter="[12, 0]">
+              <t-col :span="12">
+                <div class="form-item">
+                  <label class="form-label">验证码</label>
+                  <t-input 
+                    v-model="addAccountForm.verificationCode" 
+                    placeholder="6位数字"
+                    class="verification-input"
+                    :disabled="!showAddAccountVerificationCode"
+                  />
+                </div>
+              </t-col>
+              <t-col :span="12">
+                <div class="form-item">
+                  <label class="form-label">二级密码</label>
+                  <t-input 
+                    v-model="addAccountForm.twoFactorPassword" 
+                    placeholder="二级密码(可选)"
+                    type="password"
+                    class="two-factor-input"
+                  />
+                </div>
+              </t-col>
+            </t-row>
+          </div>
+        </div>
+        
+        <!-- 第三行：登录和取消按钮 -->
+        <div class="dialog-footer">
+          <div class="button-group">
+            <t-button 
+              theme="primary"
+              :loading="loginLoading"
+              @click="handleLogin"
+              class="login-btn"
+            >
+              {{ showAddAccountVerificationCode ? '登录' : '发送验证码' }}
+            </t-button>
+            <t-button 
+              variant="outline" 
+              @click="closeAddAccountDialog" 
+              class="cancel-btn"
+            >
+              取消
+            </t-button>
+          </div>
+        </div>
+      </div>
+    </t-dialog>
   </div>
 </template>
 
 <script>
 import TELEGRAM_CONFIG from '../config/telegram.js'
+import axios from 'axios'
 
 export default {
   name: 'TelegramAccountManagement',
   data() {
     return {
-      telegramInfo: {
-        isLoggedIn: false,
-        username: '',
-        firstName: '',
-        lastName: '',
-        phone: '',
-        userId: ''
+      // 添加账号弹窗相关
+      addAccountDialogVisible: false,
+      addAccountForm: {
+        countryCode: '+86',
+        phoneNumber: '',
+        verificationCode: '',
+        twoFactorPassword: '' // 新增：二级密码
       },
-      loginForm: {
-        phone: '',
-        verificationCode: ''
-      },
-      sessionSettings: {
-        autoReconnect: true,
-        keepOnline: false
-      },
-      showVerificationCode: false,
-      loginLoading: false
+      showAddAccountVerificationCode: false,
+      loginLoading: false, // 登录按钮的加载状态
+      // 表格相关数据
+      telegramAccountList: [],
+      tableColumns: [
+        {
+          colKey: 'username',
+          title: '用户名',
+          width: 150,
+          ellipsis: true
+        },
+        {
+          colKey: 'firstName',
+          title: '姓名',
+          width: 120,
+          cell: (h, { row }) => `${row.firstName} ${row.lastName || ''}`
+        },
+        {
+          colKey: 'phone',
+          title: '手机号',
+          width: 150
+        },
+        {
+          colKey: 'status',
+          title: '状态',
+          width: 100,
+          cell: { col: 'status' }
+        },
+        {
+          colKey: 'lastActive',
+          title: '最后活跃',
+          width: 160
+        },
+        {
+          colKey: 'createTime',
+          title: '添加时间',
+          width: 160
+        },
+        {
+          colKey: 'actions',
+          title: '操作',
+          width: 200,
+          cell: { col: 'actions' }
+        }
+      ],
+      tableLoading: false,
+      pagination: {
+        current: 1,
+        pageSize: 10,
+        total: 0,
+        showJumper: true,
+        showSizer: true
+      }
     }
   },
   methods: {
-    handleLogin() {
-      if (!this.showVerificationCode) {
-        // 第一步：发送验证码
-        if (!this.loginForm.phone) {
-          this.$message.error('请输入手机号码')
-          return
+    // 弹窗相关方法
+    showAddAccountDialog() {
+      this.addAccountDialogVisible = true
+    },
+    
+    closeAddAccountDialog() {
+      this.addAccountDialogVisible = false
+      this.showAddAccountVerificationCode = false
+              this.addAccountForm = {
+          countryCode: '+86',
+          phoneNumber: '',
+          verificationCode: '',
+          twoFactorPassword: ''
         }
-        
-        this.loginLoading = true
-        // 这里调用后端API发送验证码，使用全局配置的API_ID和API_HASH
-        const loginData = {
-          phone: this.loginForm.phone,
-          apiId: TELEGRAM_CONFIG.API_ID,
-          apiHash: TELEGRAM_CONFIG.API_HASH
-        }
-        
-        console.log('发送验证码请求:', loginData)
-        
-        setTimeout(() => {
-          this.showVerificationCode = true
-          this.loginLoading = false
-          this.$message.success('验证码已发送到您的Telegram')
-        }, 2000)
-      } else {
-        // 第二步：验证登录
-        if (!this.loginForm.verificationCode) {
-          this.$message.error('请输入验证码')
-          return
-        }
-        
-        this.loginLoading = true
-        // 这里调用后端API验证登录
-        const verifyData = {
-          phone: this.loginForm.phone,
-          verificationCode: this.loginForm.verificationCode,
-          apiId: TELEGRAM_CONFIG.API_ID,
-          apiHash: TELEGRAM_CONFIG.API_HASH
-        }
-        
-        console.log('验证登录请求:', verifyData)
-        
-        setTimeout(() => {
-          this.telegramInfo = {
-            isLoggedIn: true,
-            username: '@example_user',
-            firstName: '示例',
-            lastName: '用户',
-            phone: this.loginForm.phone,
-            userId: '123456789'
+        this.loginLoading = false
+    },
+    
+
+    
+    // 表格相关方法
+    async loadTelegramAccounts() {
+      this.tableLoading = true
+      try {
+        const response = await axios.get('http://localhost:8000/api/telegram/accounts', {
+          headers: {
+            'Authorization': 'Bearer dummy_token' // 临时token，后续需要完善
           }
-          this.loginLoading = false
-          this.$message.success('Telegram账号登录成功')
-        }, 2000)
+        })
+        
+        this.telegramAccountList = response.data.accounts.map(account => ({
+          id: account.id,
+          username: account.username || '未设置',
+          firstName: account.first_name || '',
+          lastName: account.last_name || '',
+          phone: account.phone,
+          status: account.status,
+          lastActive: account.last_active,
+          createTime: account.created_at
+        }))
+        
+        this.pagination.total = response.data.total
+        
+      } catch (error) {
+        this.$message.error(error.response?.data?.detail || '加载账号列表失败')
+      } finally {
+        this.tableLoading = false
       }
     },
-    handleRefreshInfo() {
-      this.$message.info('正在刷新Telegram账号信息...')
-      // 这里调用后端API刷新信息
+    
+    async handleRefreshList() {
+      this.tableLoading = true
+      try {
+        const response = await axios.post('http://localhost:8000/api/telegram/refresh_accounts', {}, {
+          headers: {
+            'Authorization': 'Bearer dummy_token' // 临时token，后续需要完善
+          }
+        })
+        
+        this.telegramAccountList = response.data.accounts.map(account => ({
+          id: account.id,
+          username: account.username || '未设置',
+          firstName: account.first_name || '',
+          lastName: account.last_name || '',
+          phone: account.phone,
+          status: account.status,
+          lastActive: account.last_active,
+          createTime: account.created_at
+        }))
+        
+        this.pagination.total = response.data.total
+        this.$message.success('账号列表已刷新')
+        
+      } catch (error) {
+        this.$message.error(error.response?.data?.detail || '刷新账号列表失败')
+      } finally {
+        this.tableLoading = false
+      }
     },
-    handleExportSession() {
-      this.$message.info('正在导出会话文件...')
-      // 这里调用后端API导出会话
+    
+    handlePageChange(pageInfo) {
+      this.pagination.current = pageInfo.current
+      // 这里可以调用API获取对应页面的数据
     },
-    handleLogout() {
-      this.$confirm('确定要退出Telegram账号吗？', '确认退出', {
+    
+    handlePageSizeChange(pageInfo) {
+      this.pagination.pageSize = pageInfo.pageSize
+      this.pagination.current = 1
+      // 这里可以调用API获取对应页面大小的数据
+    },
+    
+    getStatusText(status) {
+      const statusMap = {
+        online: '在线',
+        offline: '离线',
+        connecting: '连接中'
+      }
+      return statusMap[status] || '未知'
+    },
+    
+    handleViewAccount(row) {
+      this.$message.info(`查看账号详情: ${row.username}`)
+      // 这里可以打开详情弹窗或跳转到详情页面
+    },
+    
+    handleEditAccount(row) {
+      this.$message.info(`编辑账号: ${row.username}`)
+      // 这里可以打开编辑弹窗
+    },
+    
+    async handleDeleteAccount(row) {
+      this.$confirm(`确定要删除账号 ${row.username} 吗？`, '确认删除', {
         confirmBtn: '确定',
         cancelBtn: '取消'
-      }).then(() => {
-        this.telegramInfo.isLoggedIn = false
-        this.showVerificationCode = false
-        this.loginForm = {
-          phone: '',
-          verificationCode: ''
+      }).then(async () => {
+        try {
+          await axios.delete(`http://localhost:8000/api/telegram/accounts/${row.id}`, {
+            headers: {
+              'Authorization': 'Bearer dummy_token' // 临时token，后续需要完善
+            }
+          })
+          
+          this.$message.success('账号删除成功')
+          
+          // 重新加载账号列表
+          this.loadTelegramAccounts()
+          
+        } catch (error) {
+          this.$message.error(error.response?.data?.detail || '删除账号失败')
         }
-        this.$message.success('已退出Telegram账号')
       }).catch(() => {
-        // 用户取消
+        // 用户取消删除
       })
     },
-    handleAutoReconnectChange(value) {
-      this.$message.info(`自动重连已${value ? '开启' : '关闭'}`)
-      // 这里调用后端API设置自动重连
-    },
-    handleKeepOnlineChange(value) {
-      this.$message.info(`保持在线已${value ? '开启' : '关闭'}`)
-      // 这里调用后端API设置保持在线
-    }
+
+         handleLogin() {
+       if (!this.showAddAccountVerificationCode) {
+         // 第一步：发送验证码
+         if (!this.addAccountForm.phoneNumber) {
+           this.$message.error('请输入手机号码')
+           return
+         }
+         const fullPhone = this.addAccountForm.countryCode + this.addAccountForm.phoneNumber
+         this.loginLoading = true
+         axios.post('http://localhost:8000/api/telegram/send_code', {
+           phone: fullPhone,
+           api_id: TELEGRAM_CONFIG.API_ID,
+           api_hash: TELEGRAM_CONFIG.API_HASH
+         })
+         .then(() => {
+           this.showAddAccountVerificationCode = true
+           this.$message.success('验证码已发送到您的Telegram')
+         })
+         .catch(error => {
+           this.$message.error(error.response?.data?.detail || '发送验证码失败')
+         })
+         .finally(() => {
+           this.loginLoading = false
+         })
+       } else {
+         // 第二步：验证登录
+         if (!this.addAccountForm.verificationCode) {
+           this.$message.error('请输入验证码')
+           return
+         }
+         const fullPhone = this.addAccountForm.countryCode + this.addAccountForm.phoneNumber
+         this.loginLoading = true
+         
+         const loginData = {
+           phone: fullPhone,
+           verification_code: this.addAccountForm.verificationCode,
+           api_id: TELEGRAM_CONFIG.API_ID,
+           api_hash: TELEGRAM_CONFIG.API_HASH
+         }
+         
+         // 如果有二级密码，添加到请求数据中
+         if (this.addAccountForm.twoFactorPassword) {
+           loginData.two_factor_password = this.addAccountForm.twoFactorPassword
+         }
+         
+         axios.post('http://localhost:8000/api/telegram/verify_login', loginData, {
+           headers: {
+             'Authorization': 'Bearer dummy_token' // 临时token，后续需要完善
+           }
+         })
+         .then(() => {
+           this.$message.success('Telegram账号添加成功')
+           this.closeAddAccountDialog()
+           this.loadTelegramAccounts()
+         })
+         .catch(error => {
+           this.$message.error(error.response?.data?.detail || '验证登录失败')
+         })
+         .finally(() => {
+           this.loginLoading = false
+         })
+       }
+     },
+
+     
+  },
+  mounted() {
+    // 页面加载时获取账号列表
+    this.loadTelegramAccounts()
   }
 }
 </script>
 
 <style scoped>
-.telegram-account {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-}
 
-.login-card,
-.account-info-card,
-.account-actions-card,
-.session-card {
-  margin-bottom: 24px;
-}
 
-.login-form {
-  padding: 16px 0;
-}
 
-.login-help {
-  margin-top: 16px;
-  padding: 16px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  font-size: 14px;
-  color: #6b7280;
-}
 
-.login-help p {
-  margin: 0 0 8px 0;
-  font-weight: 500;
-}
-
-.login-help ol {
-  margin: 0 0 12px 0;
-  padding-left: 20px;
-}
-
-.login-help li {
-  margin-bottom: 4px;
-}
-
-.login-help .note {
-  margin: 0;
-  padding: 8px 12px;
-  background: #fff3cd;
-  border: 1px solid #ffeaa7;
-  border-radius: 4px;
-  color: #856404;
-  font-size: 13px;
-}
-
-.divider-text {
-  color: #6b7280;
-  font-size: 12px;
-}
 
 .card-header {
   display: flex;
@@ -374,14 +475,12 @@ export default {
   color: #1f2937;
 }
 
-.account-info {
-  padding: 16px 0;
-}
+
 
 .info-item {
   display: flex;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .info-label {
@@ -395,19 +494,15 @@ export default {
   flex: 1;
 }
 
-.account-actions {
-  padding: 16px 0;
-}
 
-.session-settings {
-  padding: 16px 0;
-}
+
+
 
 .setting-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 0;
+  padding: 12px 0;
 }
 
 .setting-info {
@@ -426,20 +521,118 @@ export default {
   color: #6b7280;
 }
 
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+
+
+.account-list .t-table {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* 添加账号弹窗样式 */
+.add-account-dialog {
+  text-align: center;
+}
+
+.add-account-content {
+  padding: 24px 32px;
+}
+
+.dialog-icon {
+  margin-bottom: 32px;
+  color: #0088cc;
+  text-align: center;
+}
+
+.add-account-form {
+  margin-bottom: 32px;
+}
+
+.form-row {
+  margin-bottom: 20px;
+}
+
+.form-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  height: 40px;
+}
+
+.form-label {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+  width: 70px;
+  text-align: right;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.country-code-input,
+.phone-input,
+.verification-input,
+.two-factor-input {
+  flex: 1;
+  height: 40px;
+}
+
+.country-code-input {
+  text-align: center;
+}
+
+.verification-input {
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.two-factor-input {
+  letter-spacing: 1px;
+}
+
+
+
+.button-group {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+.login-btn,
+.cancel-btn {
+  min-width: 100px;
+  height: 40px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.dialog-footer {
+  text-align: center;
+  padding-top: 24px;
+  border-top: 1px solid #e5e6eb;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .account-actions .t-col {
     span: 24;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
   
   .info-item {
     flex-direction: column;
     align-items: flex-start;
+    margin-bottom: 6px;
   }
   
   .info-label {
-    margin-bottom: 4px;
+    margin-bottom: 2px;
   }
 }
 </style> 

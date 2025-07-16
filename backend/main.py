@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.auth import router as auth_router
+from api.telegram import router as telegram_router
 from config.database import init_database
+from models.telegram import TelegramService
 import uvicorn
 
 # 创建FastAPI应用
@@ -22,12 +24,15 @@ app.add_middleware(
 
 # 注册路由
 app.include_router(auth_router)
+app.include_router(telegram_router)
 
 @app.on_event("startup")
 async def startup_event():
     """应用启动时初始化数据库"""
     print("正在初始化数据库...")
     init_database()
+    print("正在初始化Telegram账号表...")
+    TelegramService.init_telegram_table()
     print("数据库初始化完成")
 
 @app.get("/")

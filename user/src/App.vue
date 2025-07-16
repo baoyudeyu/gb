@@ -24,7 +24,7 @@
             <template #icon>
               <t-icon name="user" />
             </template>
-            账号管理
+            Telegram账号列表
           </t-menu-item>
         </t-menu>
         
@@ -230,9 +230,27 @@ export default {
 }
 
 .main-content {
-  padding: 24px;
+  padding: 0;
   background: #ffffff;
   overflow-y: auto;
+}
+
+/* 全局页面容器样式 */
+.page-container {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 16px;
+  min-height: 100vh;
+}
+
+/* 全局卡片样式 */
+.page-card {
+  margin-bottom: 16px;
+}
+
+.page-card-content {
+  padding: 12px 0;
 }
 
 /* 响应式设计 */
@@ -250,7 +268,11 @@ export default {
   }
   
   .main-content {
-    padding: 16px;
+    padding: 0;
+  }
+  
+  .page-container {
+    padding: 12px;
   }
 }
 </style> 
