@@ -22,7 +22,10 @@ async def send_verification_code(login_data: TelegramLogin):
         if not result["success"]:
             raise HTTPException(status_code=400, detail=result["message"])
         
-        return {"message": result["message"]}
+        return {
+            "message": result["message"],
+            "phone_code_hash": result.get("phone_code_hash")
+        }
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"发送验证码失败: {str(e)}")

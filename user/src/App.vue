@@ -120,16 +120,31 @@ export default {
       this.currentUser = user
       this.$message.success(`欢迎回来，${user.username}！`)
     },
-    handleLogout() {
-      this.$confirm('确定要退出登录吗？', '确认退出', {
-        confirmBtn: '确定',
-        cancelBtn: '取消'
-      }).then(() => {
-        this.currentUser = null
-        this.$message.success('已退出登录')
-      }).catch(() => {
-        // 用户取消
-      })
+    async handleLogout() {
+      try {
+        const result = await new Promise((resolve) => {
+          this.$confirm({
+            header: '确认退出',
+            body: '确定要退出登录吗？',
+            confirmBtn: '确定',
+            cancelBtn: '取消',
+            onConfirm: () => {
+              resolve(true)
+            },
+            onCancel: () => {
+              resolve(false)
+            }
+          })
+        })
+        
+        if (result) {
+          this.currentUser = null
+          this.$message.success('已退出登录')
+        }
+        
+      } catch (error) {
+        console.error('退出登录失败:', error)
+      }
     }
   },
   mounted() {

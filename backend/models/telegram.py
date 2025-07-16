@@ -18,6 +18,8 @@ class TelegramVerify(BaseModel):
     verification_code: str
     api_id: int
     api_hash: str
+    two_factor_password: Optional[str] = None
+    phone_code_hash: Optional[str] = None
 
 class TelegramAccount(BaseModel):
     id: Optional[int] = None
@@ -106,8 +108,36 @@ class TelegramService:
             
             await client.connect()
             
-            # 验证登录
-            await client.sign_in(verify_data.phone, verify_data.verification_code)
+            try:
+                # 验证登录
+                if verify_data.phone_code_hash:
+                    # 使用phone_code_hash进行验证
+                    await client.sign_in(verify_data.phone, verify_data.verification_code, phone_code_hash=verify_data.phone_code_hash)
+                else:
+                    # 兼容旧方式
+                    await client.sign_in(verify_data.phone, verify_data.verification_code)
+                    
+            except SessionPasswordNeededError:
+                # 需要二级密码验证
+                if not verify_data.two_factor_password:
+                    await client.disconnect()
+                    return {
+                        "success": False,
+                        "message": "此账号启用了两步验证，请输入二级密码后重试",
+                        "need_two_factor": True,
+                        "error_type": "two_factor_required"
+                    }
+                
+                # 使用二级密码完成登录
+                try:
+                    await client.sign_in(password=verify_data.two_factor_password)
+                except Exception as two_factor_error:
+                    await client.disconnect()
+                    return {
+                        "success": False,
+                        "message": f"二级密码验证失败: {str(two_factor_error)}",
+                        "error_type": "two_factor_invalid"
+                    }
             
             # 获取用户信息
             me = await client.get_me()
@@ -145,17 +175,37 @@ class TelegramService:
         except PhoneCodeInvalidError:
             return {
                 "success": False,
-                "message": "验证码无效"
-            }
-        except SessionPasswordNeededError:
-            return {
-                "success": False,
-                "message": "需要两步验证密码"
+                "message": "验证码无效，请检查验证码是否正确或重新获取",
+                "error_type": "invalid_code"
             }
         except Exception as e:
+            error_msg = str(e)
+            error_type = "unknown"
+            
+            # 根据错误信息判断错误类型
+            if "phone_code_hash" in error_msg.lower() or "phone code is missing" in error_msg.lower():
+                error_type = "missing_hash"
+                error_msg = "验证码会话已过期，请重新发送验证码"
+            elif "flood" in error_msg.lower():
+                error_type = "flood_wait"
+                error_msg = "请求过于频繁，请稍后再试"
+            elif "phone number" in error_msg.lower():
+                error_type = "invalid_phone"
+                error_msg = "手机号格式不正确"
+            elif "api_id" in error_msg.lower() or "api_hash" in error_msg.lower():
+                error_type = "invalid_api"
+                error_msg = "API配置错误"
+            elif "timeout" in error_msg.lower():
+                error_type = "timeout"
+                error_msg = "网络超时，请检查网络连接后重试"
+            elif "invalid session" in error_msg.lower():
+                error_type = "invalid_session"
+                error_msg = "会话无效，请重新登录"
+            
             return {
                 "success": False,
-                "message": f"登录失败: {str(e)}"
+                "message": f"登录失败: {error_msg}",
+                "error_type": error_type
             }
     
     @staticmethod

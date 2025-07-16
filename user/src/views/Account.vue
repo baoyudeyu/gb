@@ -146,6 +146,7 @@
                     placeholder="二级密码(可选)"
                     type="password"
                     class="two-factor-input"
+                    :class="{ 'highlight-input': needTwoFactorHighlight }"
                   />
                 </div>
               </t-col>
@@ -192,10 +193,12 @@ export default {
         countryCode: '+86',
         phoneNumber: '',
         verificationCode: '',
-        twoFactorPassword: '' // 新增：二级密码
+        twoFactorPassword: '', // 新增：二级密码
+        phoneCodeHash: '' // 新增：验证码哈希
       },
       showAddAccountVerificationCode: false,
       loginLoading: false, // 登录按钮的加载状态
+      needTwoFactorHighlight: false, // 是否需要高亮二级密码输入框
       // 表格相关数据
       telegramAccountList: [],
       tableColumns: [
@@ -257,13 +260,15 @@ export default {
     
     closeAddAccountDialog() {
       this.addAccountDialogVisible = false
-      this.showAddAccountVerificationCode = false
+            this.showAddAccountVerificationCode = false
+      this.needTwoFactorHighlight = false
               this.addAccountForm = {
-          countryCode: '+86',
-          phoneNumber: '',
-          verificationCode: '',
-          twoFactorPassword: ''
-        }
+        countryCode: '+86',
+        phoneNumber: '',
+        verificationCode: '',
+        twoFactorPassword: '',
+        phoneCodeHash: ''
+      }
         this.loginLoading = false
     },
     
@@ -360,11 +365,24 @@ export default {
     },
     
     async handleDeleteAccount(row) {
-      this.$confirm(`确定要删除账号 ${row.username} 吗？`, '确认删除', {
-        confirmBtn: '确定',
-        cancelBtn: '取消'
-      }).then(async () => {
-        try {
+      try {
+        const result = await new Promise((resolve) => {
+          this.$confirm({
+            header: '确认删除',
+            body: `确定要删除账号 ${row.username} 吗？`,
+            confirmBtn: '确定',
+            cancelBtn: '取消',
+            onConfirm: () => {
+              resolve(true)
+            },
+            onCancel: () => {
+              resolve(false)
+            }
+          })
+        })
+        
+        if (result) {
+          // 用户确认删除
           await axios.delete(`http://localhost:8000/api/telegram/accounts/${row.id}`, {
             headers: {
               'Authorization': 'Bearer dummy_token' // 临时token，后续需要完善
@@ -375,13 +393,11 @@ export default {
           
           // 重新加载账号列表
           this.loadTelegramAccounts()
-          
-        } catch (error) {
-          this.$message.error(error.response?.data?.detail || '删除账号失败')
         }
-      }).catch(() => {
-        // 用户取消删除
-      })
+        
+      } catch (error) {
+        this.$message.error(error.response?.data?.detail || '删除账号失败')
+      }
     },
 
          handleLogin() {
@@ -398,8 +414,12 @@ export default {
            api_id: TELEGRAM_CONFIG.API_ID,
            api_hash: TELEGRAM_CONFIG.API_HASH
          })
-         .then(() => {
+         .then((response) => {
            this.showAddAccountVerificationCode = true
+           // 保存phone_code_hash
+           if (response.data.phone_code_hash) {
+             this.addAccountForm.phoneCodeHash = response.data.phone_code_hash
+           }
            this.$message.success('验证码已发送到您的Telegram')
          })
          .catch(error => {
@@ -424,6 +444,11 @@ export default {
            api_hash: TELEGRAM_CONFIG.API_HASH
          }
          
+         // 如果有phone_code_hash，添加到请求数据中
+         if (this.addAccountForm.phoneCodeHash) {
+           loginData.phone_code_hash = this.addAccountForm.phoneCodeHash
+         }
+         
          // 如果有二级密码，添加到请求数据中
          if (this.addAccountForm.twoFactorPassword) {
            loginData.two_factor_password = this.addAccountForm.twoFactorPassword
@@ -440,12 +465,71 @@ export default {
            this.loadTelegramAccounts()
          })
          .catch(error => {
-           this.$message.error(error.response?.data?.detail || '验证登录失败')
+           const errorDetail = error.response?.data?.detail || '验证登录失败'
+           const errorType = error.response?.data?.error_type
+           
+           // 检查是否需要二级密码
+           if (error.response?.data?.need_two_factor || errorType === 'two_factor_required') {
+             this.$message.warning({
+               content: errorDetail,
+               duration: 5000
+             })
+             // 高亮显示二级密码输入框
+             this.highlightTwoFactorInput()
+           } else if (errorType === 'invalid_code') {
+             this.$message.error({
+               content: errorDetail,
+               duration: 5000
+             })
+           } else if (errorType === 'missing_hash') {
+             this.$message.error({
+               content: errorDetail,
+               duration: 5000
+             })
+             // 重置到发送验证码状态
+             this.resetToSendCodeState()
+           } else if (errorType === 'flood_wait') {
+             this.$message.warning({
+               content: errorDetail,
+               duration: 8000
+             })
+           } else {
+             this.$message.error({
+               content: errorDetail,
+               duration: 5000
+             })
+           }
          })
          .finally(() => {
            this.loginLoading = false
          })
        }
+     },
+
+     // 辅助方法
+     highlightTwoFactorInput() {
+       // 高亮显示二级密码输入框
+       this.needTwoFactorHighlight = true
+       this.$nextTick(() => {
+         const twoFactorInput = document.querySelector('.two-factor-input input')
+         if (twoFactorInput) {
+           twoFactorInput.focus()
+         }
+       })
+       
+       // 3秒后恢复正常样式
+       setTimeout(() => {
+         this.needTwoFactorHighlight = false
+       }, 3000)
+     },
+     
+     resetToSendCodeState() {
+       // 重置到发送验证码状态
+       this.showAddAccountVerificationCode = false
+       this.needTwoFactorHighlight = false
+       this.addAccountForm.verificationCode = ''
+       this.addAccountForm.phoneCodeHash = ''
+       this.addAccountForm.twoFactorPassword = ''
      },
 
      
@@ -616,6 +700,27 @@ export default {
   text-align: center;
   padding-top: 24px;
   border-top: 1px solid #e5e6eb;
+}
+
+/* 高亮输入框样式 */
+.highlight-input :deep(.t-input) {
+  border-color: #f5a623 !important;
+  box-shadow: 0 0 0 2px rgba(245, 166, 35, 0.2) !important;
+}
+
+.highlight-input :deep(.t-input:focus) {
+  border-color: #f5a623 !important;
+  box-shadow: 0 0 0 2px rgba(245, 166, 35, 0.4) !important;
+}
+
+/* 二级密码提示样式 */
+.two-factor-hint {
+  color: #f5a623;
+  font-size: 12px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* 响应式设计 */
